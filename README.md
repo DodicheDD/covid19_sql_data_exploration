@@ -1,117 +1,120 @@
-# covid19_sql_data_exploration
-( Personal Project practice)
+covid19_sql_data_exploration project:
 
-Skills used in this project: Joins, CTE's, Temp Tables, Aggregate Functions, Creating Views, Converting Data Types
+1. To ensure that the continent does not come up as null:
+```sql
+SELECT *
+FROM profoliodatabase.coviddeaths
+WHERE continent IS NOT NULL
+ORDER BY 3, 4;
+```
 
+2. Extracting COVID-19 data for analysis:
+```sql
+SELECT location, date, total_cases_per_million, new_cases, total_deaths, population
+FROM profolioprojectdatabase.profoliodatabase.coviddeaths
+ORDER BY 1, 2;
+```
 
-# I wanted to make sure that the continent does not come up as null
+3. Calculating the likelihood of dying if a person contracted COVID-19 in their area:
+```sql
+SELECT location, date, total_cases_per_million, total_deaths_per_million,
+(total_cases_per_million / total_deaths_per_million) * 100 AS DeathPercentage
+FROM profoliodatabase.coviddeaths
+ORDER BY 1, 2;
+```
 
-select*
-from `profoliodatabase.coviddeaths`
-where continent is not null 
-order by 3,4
+4. Analyzing total cases versus population percentage:
+```sql
+SELECT location, date, total_cases_per_million, population,
+(total_cases_per_million / population) * 100 AS DeathPercentage
+FROM profoliodatabase.coviddeaths
+ORDER BY 1, 2;
+```
 
+5. Identifying the country with the highest infection rate:
+```sql
+SELECT location, population, MAX(total_cases_per_million) AS highestinfectedcount,
+MAX(total_cases_per_million / population) * 100
+FROM profoliodatabase.coviddeaths
+GROUP BY location, population
+ORDER BY 1, 2;
+```
 
-selectlocation,date,total_cases_per_million,new_cases,total_deaths,population
-from `profolioprojectdatabase.profoliodatabase.coviddeaths`
-order by 1,2
+6. Countries with the highest death count:
+```sql
+SELECT location, population, MAX(total_cases) AS HighestInfectionCount,
+MAX((total_cases / population)) * 100 AS PercentPopulationInfected
+FROM profoliodatabase.coviddeaths
+GROUP BY location, population
+ORDER BY PercentPopulationInfected DESC;
+```
 
-#l Then I calculated the at total cases VS total deaths| Which showed the likelihood of dying if a person contracted Covid in their Area
+7. Countries with the highest death count per population:
+```sql
+SELECT location, MAX(total_deaths) AS totaldeathcount
+FROM profoliodatabase.coviddeaths
+WHERE continent IS NOT NULL
+GROUP BY location
+ORDER BY TotalDeathCount DESC;
+```
 
-SELECT location,date,total_cases_per_million,total_deaths_per_million,(total_cases_per_million/total_deaths_per_million)*100 as DeathPercentage
-from `profoliodatabase.coviddeaths`
-order by 1,2
+8. Death count breakdown by continent:
+```sql
+SELECT continent, MAX(total_deaths) AS totaldeathcount
+FROM profoliodatabase.coviddeaths
+WHERE continent IS NOT NULL
+GROUP BY continent
+ORDER BY TotalDeathCount DESC;
+```
 
-#Now we are looking at the total cases VS population | which showed us what % of population had covid
+9. Joining COVID-19 deaths and vaccination data for analysis:
+```sql
+SELECT *
+FROM profoliodatabase.coviddeaths dea
+JOIN profoliodatabase.covidvaccination vac ON dea.location = vac.location AND dea.date = vac.date;
+```
 
-SELECT location,date,total_cases_per_million,population,(total_cases_per_million/population)*100 as DeathPercentage
-from `profoliodatabase.coviddeaths`
-order by 1,2
+10. Analyzing total population versus new vaccinations:
+```sql
+SELECT dea.continent, dea.location, dea.date, population, vac.new_vaccinations
+FROM profoliodatabase.coviddeaths dea
+JOIN profoliodatabase.covidvaccination vac ON dea.location = vac.location AND dea.date = vac.date
+WHERE dea.continent IS NOT NULL
+ORDER BY 1, 2, 3;
+```
 
-#what country has the highest infection rate|
+11. Showing the percentage of the population that received at least one COVID-19 vaccine:
+```sql
+SELECT dea.continent, dea.location, dea.date, population, vac.new_vaccinations,
+SUM(vac.new_vaccinations) OVER (PARTITION BY dea.Location ORDER BY dea.location, dea.Date) AS PeopleVaccinated
+FROM profoliodatabase.coviddeaths dea
+JOIN profoliodatabase.covidvaccination vac ON dea.location = vac.location AND dea.date = vac.date
+WHERE dea.continent IS NOT NULL
+ORDER BY 2, 3;
+```
 
-SELECT location,population, Max (total_cases_per_million) as highestinfectedcount MAX (total_cases_per_million/population)*100
-from `profoliodatabase.coviddeaths`
-group by population,location
-order by 1.2
+12. Using a Temporary Table for calculations:
+```sql
+-- Assuming #PercentPopulationVaccinated Temporary Table exists
+INSERT INTO #PercentPopulationVaccinated
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(CONVERT(int, vac.new_vaccinations)) OVER (PARTITION BY dea.Location ORDER BY dea.location, dea.Date) AS PeopleVaccinated
+-- (PeopleVaccinated/population) * 100
+FROM profoliodatabase.coviddeaths dea
+JOIN profoliodatabase.covidvaccination vac ON dea.location = vac.location AND dea.date = vac.date
+-- WHERE dea.continent IS NOT NULL
+-- ORDER BY 2, 3;
+```
 
-#countries with highest death count
+13. Creating a view for storing calculated data:
+```sql
+CREATE VIEW PercentPopulationVaccinated AS
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(CONVERT(int, vac.new_vaccinations)) OVER (PARTITION BY dea.Location ORDER BY dea.location, dea.Date) AS RollingPeopleVaccinated
+-- (RollingPeopleVaccinated/population) * 100
+FROM profoliodatabase.coviddeaths dea
+JOIN profoliodatabase.covidvaccination vac ON dea.location = vac.location AND dea.date = vac.date
+WHERE dea.continent IS NOT NULL;
+```
 
-Select Location, Population, MAX(total_cases) as HighestInfectionCount,  Max((total_cases/population))*100 as PercentPopulationInfected
-From `profoliodatabase.coviddeaths`
-Group by Location, Population
-order by PercentPopulationInfected desc
-
-#countries with the highest deathcount per population
-
-Select location, MAX(total_deaths)as totaldeathcount
-From `profoliodatabase.coviddeaths`
-where continent is not null
-Group by location
-order by TotalDeathCount desc
-
-
-#broken down by continent 
-
-Select continent, MAX(total_deaths)as totaldeathcount
-From `profoliodatabase.coviddeaths`
-where continent is not null
-Group by continent
-order by TotalDeathCount desc
-
-Total Population Vs Vaccination
-# I first wanted to make sure the tables were joined correctly
-select *
-from `profoliodatabase.coviddeaths` dea
-JOIN `profoliodatabase.covidvaccination` vac
-ON  dea.location = vac.location
-and dea.date = vac.date
-
-# Now im looking at the total population Vs vaccination ( Total amount of people in the world that has been vaccinated) { dea=death/vac= vaccination}
-
-select dea.continent ,dea.location ,dea.date, population, vac.new_vaccinations
-from `profoliodatabase.coviddeaths` dea
-JOIN `profoliodatabase.covidvaccination` vac
-ON  dea.location = vac.location
-and dea.date = vac.date
-where dea.continent is not null
-order by 1,2,3
-
-# Shows Percentage of Population that has recieved at least one Covid Vaccine
-
-select dea.continent ,dea.location ,dea.date, population, vac.new_vaccinations
-, SUM(vac.new_vaccinations) OVER (Partition by dea.Location Order by dea.location, dea.Date) as PeopleVaccinated
-from `profoliodatabase.coviddeaths` dea
-JOIN `profoliodatabase.covidvaccination` vac
-ON  dea.location = vac.location
-and dea.date = vac.date
-where dea.continent is not null
-order by 2,3
-
--- Using Temp Table to perform Calculation on Partition By in previous query
-)
-
-Insert into #PercentPopulationVaccinated
-Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
-, SUM(CONVERT(int,vac.new_vaccinations)) OVER (Partition by dea.Location Order by dea.location, dea.Date) as PeopleVaccinated
---, (PeopleVaccinated/population)*100
-From `profoliodatabase.coviddeaths`  dea
-Join `profoliodatabase.covidvaccination` vac
-	On dea.location = vac.location
-	and dea.date = vac.date
---where dea.continent is not null 
---order by 2,3
-
-
-# Creatng view to store data later, for Viz
-will be looking at the 
-
-Create View PercentPopulationVaccinated as
-Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
-, SUM(CONVERT(int,vac.new_vaccinations)) OVER (Partition by dea.Location Order by dea.location, dea.Date) as RollingPeopleVaccinated
---, (RollingPeopleVaccinated/population)*100
-From `profoliodatabase.coviddeaths` dea
-Join `profoliodatabase.covidvaccination` vac
-	On dea.location = vac.location
-	and dea.date = vac.date
-where dea.continent is not null
+These queries effectively illustrate the step-by-step data exploration and analysis performed in the "covid19_sql_data_exploration" project.
